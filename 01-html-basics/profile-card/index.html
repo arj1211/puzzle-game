@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Profile Card</title>
+    <meta name="color-scheme" content="light dark" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body class="dark">
+    <a href="#contact" class="visually-hidden">Skip to Contact</a>
+    <main class="container">
+      <article class="card stack" aria-labelledby="name">
+        <header class="stack">
+          <figure class="stack" style="max-width: 180px">
+            <img
+              src="https://placehold.co/360x360/png"
+              alt="Portrait of Ada Lovelace smiling"
+              width="360"
+              height="360"
+              style="width: 100%; height: auto; border-radius: var(--radius)"
+            />
+            <figcaption class="visually-hidden">Profile photo</figcaption>
+          </figure>
+          <h1 id="name">Ada Lovelace</h1>
+          <p>Computing pioneer, writer, enthusiast of analytical engines.</p>
+        </header>
+        <section class="stack" aria-labelledby="skills-title">
+          <h2 id="skills-title">Skills</h2>
+          <ul>
+            <li>Mathematics</li>
+            <li>Algorithms</li>
+            <li>Technical writing</li>
+          </ul>
+        </section>
+
+        <section class="stack" aria-labelledby="links-title">
+          <h2 id="links-title">Links</h2>
+          <nav aria-label="Social links">
+            <ul>
+              <li>
+                <a
+                  href="https://en.wikipedia.org/wiki/Ada_Lovelace"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Wikipedia
+                  <span class="visually-hidden">(opens in a new tab)</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://example.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Personal site
+                  <span class="visually-hidden">(opens in a new tab)</span>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </section>
+
+        <footer>
+          <p>Based in London, UK</p>
+        </footer>
+
+        <section class="stack" id="contact">
+          <h2>Contact</h2>
+
+          <form>
+            <fieldset class="formlist">
+              <legend>Contact form</legend>
+              <div>
+                <label for="fname">First name</label>
+                <input
+                  type="text"
+                  id="fname"
+                  name="fname"
+                  autocomplete="given-name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for="lname">Last name</label>
+                <input
+                  type="text"
+                  id="lname"
+                  name="lname"
+                  autocomplete="family-name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for="email">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  autocomplete="email"
+                  required
+                />
+              </div>
+
+              <div>
+                <label for="message">Message</label>
+                <textarea
+                  id="message"
+                  name="message"
+                  rows="4"
+                  required
+                ></textarea>
+              </div>
+
+              <button type="submit">Submit</button>
+            </fieldset>
+          </form>
+        </section>
+      </article>
+    </main>
+  </body>
+</html>

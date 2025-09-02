@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Product Card</title>
+    <meta name="color-scheme" content="light dark" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body class="dark">
+    <main class="container">
+      <article class="card stack" aria-labelledby="prod-name">
+        <header class="stack">
+          <figure class="stack">
+            <img
+              src="https://placehold.co/800x600/png"
+              alt="Matte black mechanical keyboard with white backlight"
+              width="800"
+              height="600"
+              style="width: 100%; height: auto; border-radius: var(--radius)"
+            />
+            <figcaption class="visually-hidden">Product photo</figcaption>
+          </figure>
+          <h1 id="prod-name">Nimbus TKL Mechanical Keyboard</h1>
+          <p>Hot-swappable switches, aluminum case, white backlight.</p>
+        </header>
+        <section class="stack" aria-labelledby="details-title">
+          <h2 id="details-title">Details</h2>
+          <dl>
+            <dt>Switches</dt>
+            <dd>MX-compatible, hot-swappable</dd>
+            <dt>Connectivity</dt>
+            <dd>USB-C</dd>
+            <dt>Layout</dt>
+            <dd>Tenkeyless (87 keys)</dd>
+          </dl>
+        </section>
+
+        <section class="stack" id="details" aria-labelledby="price-title">
+          <h2 id="price-title">Purchase</h2>
+          <p>
+            <strong>$129</strong>
+            <span aria-hidden="true">★★★★☆</span>
+            <span class="visually-hidden"
+              >Rated four and a half out of five stars</span
+            >
+          </p>
+          <p class="stack">
+            <a href="#details">View details</a>
+            <button type="button">Add to cart</button>
+          </p>
+        </section>
+
+        <footer>
+          <p><small>Ships in 2–3 business days</small></p>
+        </footer>
+      </article>
+    </main>
+  </body>
+</html>

@@ -1,21 +1,28 @@
 // UI elements
 const boardEl = document.getElementById("board");
 const movesEl = document.getElementById("moves");
+const bestMovesEl = document.getElementById("best-moves");
 const statusEl = document.getElementById("status");
 const newBtn = document.getElementById("new");
 const sizeSelect = document.getElementById("size");
 const themeBtn = document.getElementById("theme");
 const hintBtn = document.getElementById("hint");
+const undoBtn = document.getElementById("undo");
+const redoBtn = document.getElementById("redo");
 
 // Theme toggle
 themeBtn?.addEventListener("click", () => {
   document.body.classList.toggle("dark");
+  localStorage.setItem("isDarkTheme", document.body.classList.contains("dark"));
 });
 
 // Game state
 let size = 3; // board size N (NxN)
 let state = []; // flat array of booleans; true = ON, false = OFF
 let moves = 0;
+let moveStack = [];
+let movePtr = -1;
+let bestMoves = localStorage.getItem("bestMoves");
 
 function idx(r, c) {
   return r * size + c;
@@ -80,9 +87,11 @@ function render() {
   }
 
   movesEl.textContent = String(moves);
+  bestMovesEl.textContent = bestMoves ? String(bestMoves) : "";
 }
 
 function shuffle() {
+  unhighlightAll();
   // Start from solved; apply random valid moves so it's solvable
   state = new Array(size * size).fill(false);
   const shuffleMoves = size * size * 3; // plenty of randomness
@@ -91,6 +100,8 @@ function shuffle() {
     applyMove(i);
   }
   moves = 0;
+  moveStack = [];
+  movePtr = -1;
   statusEl.textContent = "";
   render();
 }
@@ -100,6 +111,12 @@ function disableBoard() {
   for (let index = 0; index < boardEl.children.length; index++) {
     boardEl.children[index].disabled = true;
   }
+}
+
+function disableHUR() {
+  hintBtn.disabled = true;
+  undoBtn.disabled = true;
+  redoBtn.disabled = true;
 }
 
 function unhighlightAll() {
@@ -127,6 +144,44 @@ function showHint() {
 
 hintBtn.addEventListener("click", showHint);
 
+function undo() {
+  if (moves > 0) {
+    toggle(moveStack[movePtr]);
+    movePtr -= 1;
+    moves -= 1;
+    render();
+  }
+}
+undoBtn.addEventListener("click", undo);
+
+function undo() {
+  if (moves > 0) {
+    toggle(moveStack[movePtr]);
+    movePtr -= 1;
+    moves -= 1;
+    render();
+  }
+}
+undoBtn.addEventListener("click", undo);
+
+function redo() {
+  if (movePtr < moveStack.length - 1) {
+    toggle(moveStack[movePtr]);
+    movePtr += 1;
+    moves += 1;
+    render();
+  }
+}
+redoBtn.addEventListener("click", redo);
+
+function trimHistory() {
+  let n = moveStack.length - movePtr;
+  while (n > 1) {
+    moveStack.pop();
+    n -= 1;
+  }
+}
+
 // Events
 boardEl.addEventListener("click", (e) => {
   unhighlightAll();
@@ -134,11 +189,17 @@ boardEl.addEventListener("click", (e) => {
   if (!btn) return;
   const i = Number(btn.dataset.index);
   applyMove(i);
+  trimHistory();
+  moveStack.push(i);
+  movePtr += 1;
   moves += 1;
   render();
   if (isWin()) {
     statusEl.textContent = "You solved it! 🎉";
     disableBoard();
+    disableHUR();
+    bestMoves = Math.min(bestMoves, moves);
+    localStorage.setItem("bestMoves", bestMoves);
   } else {
     statusEl.textContent = "";
   }
@@ -157,6 +218,9 @@ boardEl.addEventListener("keydown", (e) => {
   if (e.key === " " || e.key === "Enter") {
     e.preventDefault();
     btn.click();
+    trimHistory();
+    moveStack.push(i);
+    movePtr += 1;
     boardEl.querySelector(`.tile[data-index="${idx(r, c)}"]`)?.focus();
     return;
   }
@@ -182,6 +246,12 @@ sizeSelect.addEventListener("change", () => {
 });
 
 function init() {
+  // Remember page theme
+  if (localStorage.getItem("isDarkTheme") != null) {
+    if (localStorage.getItem("isDarkTheme") == "true")
+      document.body.classList.add("dark");
+  }
+
   // Populate size options 3–7
   const sizes = [3, 4, 5, 6, 7];
   sizeSelect.innerHTML = sizes

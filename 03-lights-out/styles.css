@@ -99,6 +99,7 @@ h1 {
 /* Board and tiles */
 .board {
   display: grid;
+  max-height: 10vh;
   gap: 8px;
 }
 .tile {

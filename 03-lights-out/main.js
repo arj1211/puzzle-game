@@ -2,6 +2,8 @@
 const boardEl = document.getElementById("board");
 const movesEl = document.getElementById("moves");
 const bestMovesEl = document.getElementById("best-moves");
+const timeEl = document.getElementById("time");
+const bestTimeEl = document.getElementById("best-time");
 const statusEl = document.getElementById("status");
 const newBtn = document.getElementById("new");
 const sizeSelect = document.getElementById("size");
@@ -9,6 +11,7 @@ const themeBtn = document.getElementById("theme");
 const hintBtn = document.getElementById("hint");
 const undoBtn = document.getElementById("undo");
 const redoBtn = document.getElementById("redo");
+const autoHintEl = document.getElementById("auto-hint");
 
 // Theme toggle
 themeBtn?.addEventListener("click", () => {
@@ -25,18 +28,70 @@ let moves = 0;
 let history = [];
 let ptr = -1;
 
-// Best moves per size
+// Best stats per size
 let bestMoves = null;
-function bestKey() {
+let bestTime = null;
+
+// Timer
+let startTime = 0;
+let elapsed = 0;
+let timerId = null;
+function formatTime(ms) {
+  const total = Math.max(0, Math.floor(ms));
+  const tenths = Math.floor((total % 1000) / 100);
+  const secs = Math.floor(total / 1000) % 60;
+  const mins = Math.floor(total / 60000);
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(
+    2,
+    "0"
+  )}.${tenths}`;
+}
+function updateTimeUI() {
+  timeEl.textContent = formatTime(elapsed);
+}
+function startTimer() {
+  stopTimer();
+  startTime = performance.now();
+  elapsed = 0;
+  updateTimeUI();
+  timerId = setInterval(() => {
+    elapsed = performance.now() - startTime;
+    updateTimeUI();
+  }, 100);
+}
+function stopTimer() {
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+}
+
+// Storage helpers
+function bestMovesKey() {
   return `bestMoves-${size}`;
 }
-function loadBestMoves() {
-  const v = localStorage.getItem(bestKey());
-  bestMoves = v != null ? parseInt(v, 10) : null;
+function bestTimeKey() {
+  return `bestTime-${size}`;
+}
+
+function loadBests() {
+  const mv = localStorage.getItem(bestMovesKey());
+  bestMoves = mv != null ? parseInt(mv, 10) : null;
+  bestMovesEl.textContent = bestMoves == null ? "–" : String(bestMoves);
+
+  const tm = localStorage.getItem(bestTimeKey());
+  bestTime = tm != null ? parseInt(tm, 10) : null;
+  bestTimeEl.textContent = bestTime == null ? "–" : formatTime(bestTime);
 }
 function saveBestMoves(n) {
   bestMoves = n;
-  localStorage.setItem(bestKey(), String(n));
+  localStorage.setItem(bestMovesKey(), String(n));
+  bestMovesEl.textContent = String(n);
+}
+function saveBestTime(ms) {
+  bestTime = ms;
+  localStorage.setItem(bestTimeKey(), String(ms));
+  bestTimeEl.textContent = formatTime(ms);
 }
 
 // Helpers
@@ -95,24 +150,20 @@ function render() {
   }
 
   movesEl.textContent = String(moves);
-  bestMovesEl.textContent = bestMoves == null ? "–" : String(bestMoves);
 
   // Fit board to viewport after DOM updates
   requestAnimationFrame(resizeBoardToViewport);
 }
 
 function resizeBoardToViewport() {
-  // Compute the largest square we can fit without scrolling:
-  // limited by parent width and remaining viewport height below the board's top.
   const rect = boardEl.getBoundingClientRect();
-  const availableHeight = Math.max(0, window.innerHeight - rect.top - 16); // 16px breathing room
+  const availableHeight = Math.max(0, window.innerHeight - rect.top - 16);
   const parent = boardEl.parentElement;
   const availableWidth = parent ? parent.clientWidth : rect.width;
   const side = Math.floor(Math.min(availableWidth, availableHeight));
   boardEl.style.width = side + "px";
   boardEl.style.height = side + "px";
 }
-
 window.addEventListener("resize", () => {
   requestAnimationFrame(resizeBoardToViewport);
 });
@@ -149,6 +200,8 @@ function shuffle() {
   statusEl.textContent = "";
   enableControls();
   render();
+  stopTimer();
+  startTimer();
 }
 
 // History push (trims redo)
@@ -159,15 +212,13 @@ function pushMove(i) {
 }
 
 // Solver (Gaussian elimination over GF(2))
-let A = null; // coefficient matrix for current size (N^2 x N^2), A[row][col] in {0,1}
-
+let A = null; // coefficient matrix for current size (N^2 x N^2)
 function buildMatrix() {
   const n = size * size;
   A = Array.from({ length: n }, () => new Uint8Array(n));
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
-      const j = idx(r, c); // column = press at (r,c)
-      // Press toggles itself and 4-neighbors
+      const j = idx(r, c); // press at (r,c)
       const cells = [
         [r, c],
         [r - 1, c],
@@ -177,7 +228,7 @@ function buildMatrix() {
       ];
       for (const [rr, cc] of cells) {
         if (inBounds(rr, cc)) {
-          const i = idx(rr, cc); // row = affected cell
+          const i = idx(rr, cc); // affected cell
           A[i][j] = 1;
         }
       }
@@ -186,10 +237,8 @@ function buildMatrix() {
 }
 
 function solvePresses() {
-  // Solve A x = b (mod 2), where b = current state (1=ON)
-  // Returns one solution vector x (0/1) of length n, or null if none (shouldn't happen for our shuffles).
+  // Solve A x = b (mod 2), b=state (1=ON)
   const n = size * size;
-  // Copy A and build augmented vector b
   const M = Array.from({ length: n }, (_, r) => Uint8Array.from(A[r]));
   const b = new Uint8Array(n);
   for (let i = 0; i < n; i++) b[i] = state[i] ? 1 : 0;
@@ -197,11 +246,9 @@ function solvePresses() {
   let row = 0;
   const pivotCol = new Int16Array(n).fill(-1);
   for (let col = 0; col < n && row < n; col++) {
-    // find pivot
     let sel = row;
     while (sel < n && M[sel][col] === 0) sel++;
     if (sel === n) continue;
-    // swap rows
     if (sel !== row) {
       const tmp = M[sel];
       M[sel] = M[row];
@@ -211,7 +258,6 @@ function solvePresses() {
       b[row] = tb;
     }
     pivotCol[row] = col;
-    // eliminate below
     for (let r2 = row + 1; r2 < n; r2++) {
       if (M[r2][col] === 1) {
         for (let c2 = col; c2 < n; c2++) M[r2][c2] ^= M[row][c2];
@@ -220,7 +266,6 @@ function solvePresses() {
     }
     row++;
   }
-  // check inconsistency (0 ... 0 | 1)
   for (let r2 = row; r2 < n; r2++) {
     let allZero = true;
     for (let c2 = 0; c2 < n; c2++) {
@@ -231,7 +276,6 @@ function solvePresses() {
     }
     if (allZero && b[r2] === 1) return null;
   }
-  // back substitution (free vars assumed 0)
   const x = new Uint8Array(n);
   for (let r2 = row - 1; r2 >= 0; r2--) {
     const col = pivotCol[r2];
@@ -258,10 +302,9 @@ boardEl.addEventListener("click", (e) => {
   if (isWin()) {
     statusEl.textContent = "You solved it! 🎉";
     disableControls();
-    if (bestMoves == null || moves < bestMoves) {
-      saveBestMoves(moves);
-      render();
-    }
+    stopTimer();
+    if (bestMoves == null || moves < bestMoves) saveBestMoves(moves);
+    if (bestTime == null || elapsed < bestTime) saveBestTime(elapsed);
   } else {
     statusEl.textContent = "";
   }
@@ -279,7 +322,7 @@ boardEl.addEventListener("keydown", (e) => {
 
   if (e.key === " " || e.key === "Enter") {
     e.preventDefault();
-    btn.click(); // delegates to click handler (updates history/moves/render)
+    btn.click();
     return;
   }
 
@@ -297,14 +340,14 @@ boardEl.addEventListener("keydown", (e) => {
 });
 
 newBtn.addEventListener("click", () => {
-  loadBestMoves();
+  loadBests();
   shuffle();
 });
 
 sizeSelect.addEventListener("change", () => {
   size = Number(sizeSelect.value);
   buildMatrix();
-  loadBestMoves();
+  loadBests();
   shuffle();
 });
 
@@ -312,9 +355,8 @@ hintBtn.addEventListener("click", () => {
   unhighlightAll();
   if (isWin()) return;
   const x = solvePresses();
-  if (!x) return; // should not happen for our generated boards
+  if (!x) return;
   const n = size * size;
-  // pick the first suggested press from the solution
   let pick = -1;
   for (let i = 0; i < n; i++) {
     if (x[i] === 1) {
@@ -324,8 +366,14 @@ hintBtn.addEventListener("click", () => {
   }
   if (pick === -1) return;
   const target = boardEl.querySelector(`.tile[data-index="${pick}"]`);
-  target?.classList.add("highlight");
-  target?.focus();
+  if (!target) return;
+
+  if (autoHintEl?.checked) {
+    target.click(); // auto-play the suggested move
+  } else {
+    target.classList.add("highlight");
+    target.focus();
+  }
 });
 
 undoBtn.addEventListener("click", () => {
@@ -365,7 +413,7 @@ function init() {
     .join("");
 
   buildMatrix();
-  loadBestMoves();
+  loadBests();
   shuffle();
 }
 

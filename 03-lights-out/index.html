@@ -19,17 +19,25 @@
 
         <div class="spacer"></div>
 
+        <label>
+          <input type="checkbox" id="auto-hint" />
+          Auto-play hint
+        </label>
+        <button id="hint">Hint</button>
         <button id="undo">Undo</button>
         <button id="redo">Redo</button>
-        <button id="hint">Hint</button>
       </header>
 
       <section class="stack">
         <h1>Lights Out</h1>
 
         <p class="status">
-          Moves: <strong id="moves">0</strong> • Best:
+          Moves: <strong id="moves">0</strong> • Best moves:
           <strong id="best-moves">–</strong>
+        </p>
+        <p class="status">
+          Time: <strong id="time">00:00.0</strong> • Best time:
+          <strong id="best-time">–</strong>
           <span id="status" aria-live="polite" style="margin-left: 8px"></span>
         </p>
 

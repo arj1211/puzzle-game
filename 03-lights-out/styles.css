@@ -50,6 +50,7 @@ body.dark {
 .stack > * + * {
   margin-top: 16px;
 }
+
 .card {
   background: var(--surface);
   padding: calc(var(--space) * 1.25);
@@ -62,6 +63,9 @@ body.dark {
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
+}
+.toolbar .spacer {
+  margin-left: auto;
 }
 .status {
   margin: 0;
@@ -99,8 +103,9 @@ h1 {
 /* Board and tiles */
 .board {
   display: grid;
-  max-height: 10vh;
   gap: 8px;
+  margin: 0 auto; /* center board */
+  /* width/height will be set via JS to fit viewport */
 }
 .tile {
   aspect-ratio: 1;

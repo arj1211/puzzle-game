@@ -9,9 +9,7 @@
   <body>
     <main class="container stack">
       <header class="toolbar">
-        <button id="new">New game</button>
-
-        <label for="size">Size</label>
+        <button id="new">New game</button><label for="size">Size</label>
         <select id="size" aria-label="Board size">
           <option value="3">3×3</option>
           <option value="4" selected>4×4</option>
@@ -21,6 +19,11 @@
         <button id="theme">Toggle theme</button>
 
         <div class="spacer"></div>
+
+        <label style="display: inline-flex; align-items: center; gap: 6px">
+          <input type="checkbox" id="auto-move" />
+          Keyboard auto-move
+        </label>
 
         <p class="status">
           Moves: <strong id="moves">0</strong> • Best: <strong id="best-moves">–</strong> • Time:

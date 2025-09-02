@@ -1,7 +1,13 @@
 import js from "@eslint/js";
 
 export default [
+  // Ignore build artifacts and deps
   { ignores: ["dist/", "node_modules/"] },
+
+  // Include ESLint's recommended rules
+  js.configs.recommended,
+
+  // Project-specific settings and tweaks
   {
     files: ["**/*.js"],
     languageOptions: {
@@ -14,12 +20,14 @@ export default [
         localStorage: "readonly",
         performance: "readonly",
         requestAnimationFrame: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
       },
     },
     rules: {
-      ...js.configs.recommended.rules,
-      ...ESLint.configs.recommended.rules,
-      // "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
     },
   },
 ];

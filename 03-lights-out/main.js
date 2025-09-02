@@ -17,34 +17,43 @@ themeBtn?.addEventListener("click", () => {
 });
 
 // Game state
-let size = 3; // board size N (NxN)
+let size = 5; // board size N (NxN)
 let state = []; // flat array of booleans; true = ON, false = OFF
 let moves = 0;
-let moveStack = [];
-let movePtr = -1;
-let bestMoves = localStorage.getItem("bestMoves");
 
+// Move history (indices of applied moves)
+let history = [];
+let ptr = -1;
+
+// Best moves per size
+let bestMoves = null;
+function bestKey() {
+  return `bestMoves-${size}`;
+}
+function loadBestMoves() {
+  const v = localStorage.getItem(bestKey());
+  bestMoves = v != null ? parseInt(v, 10) : null;
+}
+function saveBestMoves(n) {
+  bestMoves = n;
+  localStorage.setItem(bestKey(), String(n));
+}
+
+// Helpers
 function idx(r, c) {
   return r * size + c;
 }
-
 function inBounds(r, c) {
   return r >= 0 && r < size && c >= 0 && c < size;
 }
-function get_rc(idx) {
-  const _r = Math.floor(idx / size);
-  const _c = idx % size;
-  if (inBounds(_r, _c)) return { r: _r, c: _c };
-  return { r: -1, c: -1 };
-}
+
+// Pure state ops
 function toggle(i) {
-  unhighlightAll();
   state[i] = !state[i];
 }
 
 function applyMove(i) {
-  unhighlightAll();
-  // Toggle clicked cell + orthogonal neighbors
+  // Toggle cell + orthogonal neighbors
   const r = Math.floor(i / size);
   const c = i % size;
   toggle(i);
@@ -62,10 +71,10 @@ function applyMove(i) {
 }
 
 function isWin() {
-  // Win when all lights are OFF
   return state.every((v) => !v);
 }
 
+// Rendering and sizing
 function render() {
   boardEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
   boardEl.innerHTML = "";
@@ -75,7 +84,6 @@ function render() {
     btn.type = "button";
     btn.className = `tile${state[i] ? " on" : ""}`;
     btn.dataset.index = String(i);
-    // ARIA: treat tiles as toggles to announce ON/OFF
     btn.setAttribute("aria-pressed", state[i] ? "true" : "false");
     const row = Math.floor(i / size) + 1;
     const col = (i % size) + 1;
@@ -87,119 +95,173 @@ function render() {
   }
 
   movesEl.textContent = String(moves);
-  bestMovesEl.textContent = bestMoves ? String(bestMoves) : "";
+  bestMovesEl.textContent = bestMoves == null ? "–" : String(bestMoves);
+
+  // Fit board to viewport after DOM updates
+  requestAnimationFrame(resizeBoardToViewport);
 }
 
-function shuffle() {
-  unhighlightAll();
-  // Start from solved; apply random valid moves so it's solvable
-  state = new Array(size * size).fill(false);
-  const shuffleMoves = size * size * 3; // plenty of randomness
-  for (let k = 0; k < shuffleMoves; k++) {
-    const i = Math.floor(Math.random() * state.length);
-    applyMove(i);
-  }
-  moves = 0;
-  moveStack = [];
-  movePtr = -1;
-  statusEl.textContent = "";
-  render();
+function resizeBoardToViewport() {
+  // Compute the largest square we can fit without scrolling:
+  // limited by parent width and remaining viewport height below the board's top.
+  const rect = boardEl.getBoundingClientRect();
+  const availableHeight = Math.max(0, window.innerHeight - rect.top - 16); // 16px breathing room
+  const parent = boardEl.parentElement;
+  const availableWidth = parent ? parent.clientWidth : rect.width;
+  const side = Math.floor(Math.min(availableWidth, availableHeight));
+  boardEl.style.width = side + "px";
+  boardEl.style.height = side + "px";
 }
 
-function disableBoard() {
-  unhighlightAll();
-  for (let index = 0; index < boardEl.children.length; index++) {
-    boardEl.children[index].disabled = true;
-  }
-}
+window.addEventListener("resize", () => {
+  requestAnimationFrame(resizeBoardToViewport);
+});
 
-function disableHUR() {
+// Controls enable/disable
+function enableControls() {
+  hintBtn.disabled = false;
+  undoBtn.disabled = false;
+  redoBtn.disabled = false;
+}
+function disableControls() {
   hintBtn.disabled = true;
   undoBtn.disabled = true;
   redoBtn.disabled = true;
 }
 
 function unhighlightAll() {
-  for (let index = 0; index < boardEl.children.length; index++) {
-    boardEl.children[index].classList.remove("highlight");
+  for (const el of boardEl.querySelectorAll(".tile.highlight")) {
+    el.classList.remove("highlight");
   }
 }
 
-function showHint() {
-  unhighlightAll();
-  if (!isWin()) {
-    for (let index = 0; index < boardEl.children.length; index++) {
-      if (boardEl.children[index].classList.contains("on")) {
-        const pos = get_rc(index);
-        const elem = boardEl.querySelector(
-          `.tile[data-index="${idx((pos.r + 1) % size, pos.c)}"]`
-        );
-        elem?.focus();
-        elem.classList.add("highlight");
-        return;
+// Shuffle to a solvable random board by applying random moves from solved
+function shuffle() {
+  state = new Array(size * size).fill(false);
+  const shuffleMoves = size * size * 3;
+  for (let k = 0; k < shuffleMoves; k++) {
+    const i = Math.floor(Math.random() * state.length);
+    applyMove(i);
+  }
+  moves = 0;
+  history = [];
+  ptr = -1;
+  statusEl.textContent = "";
+  enableControls();
+  render();
+}
+
+// History push (trims redo)
+function pushMove(i) {
+  if (ptr < history.length - 1) history = history.slice(0, ptr + 1);
+  history.push(i);
+  ptr += 1;
+}
+
+// Solver (Gaussian elimination over GF(2))
+let A = null; // coefficient matrix for current size (N^2 x N^2), A[row][col] in {0,1}
+
+function buildMatrix() {
+  const n = size * size;
+  A = Array.from({ length: n }, () => new Uint8Array(n));
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const j = idx(r, c); // column = press at (r,c)
+      // Press toggles itself and 4-neighbors
+      const cells = [
+        [r, c],
+        [r - 1, c],
+        [r + 1, c],
+        [r, c - 1],
+        [r, c + 1],
+      ];
+      for (const [rr, cc] of cells) {
+        if (inBounds(rr, cc)) {
+          const i = idx(rr, cc); // row = affected cell
+          A[i][j] = 1;
+        }
       }
     }
   }
 }
 
-hintBtn.addEventListener("click", showHint);
+function solvePresses() {
+  // Solve A x = b (mod 2), where b = current state (1=ON)
+  // Returns one solution vector x (0/1) of length n, or null if none (shouldn't happen for our shuffles).
+  const n = size * size;
+  // Copy A and build augmented vector b
+  const M = Array.from({ length: n }, (_, r) => Uint8Array.from(A[r]));
+  const b = new Uint8Array(n);
+  for (let i = 0; i < n; i++) b[i] = state[i] ? 1 : 0;
 
-function undo() {
-  if (moves > 0) {
-    toggle(moveStack[movePtr]);
-    movePtr -= 1;
-    moves -= 1;
-    render();
+  let row = 0;
+  const pivotCol = new Int16Array(n).fill(-1);
+  for (let col = 0; col < n && row < n; col++) {
+    // find pivot
+    let sel = row;
+    while (sel < n && M[sel][col] === 0) sel++;
+    if (sel === n) continue;
+    // swap rows
+    if (sel !== row) {
+      const tmp = M[sel];
+      M[sel] = M[row];
+      M[row] = tmp;
+      const tb = b[sel];
+      b[sel] = b[row];
+      b[row] = tb;
+    }
+    pivotCol[row] = col;
+    // eliminate below
+    for (let r2 = row + 1; r2 < n; r2++) {
+      if (M[r2][col] === 1) {
+        for (let c2 = col; c2 < n; c2++) M[r2][c2] ^= M[row][c2];
+        b[r2] ^= b[row];
+      }
+    }
+    row++;
   }
-}
-undoBtn.addEventListener("click", undo);
-
-function undo() {
-  if (moves > 0) {
-    toggle(moveStack[movePtr]);
-    movePtr -= 1;
-    moves -= 1;
-    render();
+  // check inconsistency (0 ... 0 | 1)
+  for (let r2 = row; r2 < n; r2++) {
+    let allZero = true;
+    for (let c2 = 0; c2 < n; c2++) {
+      if (M[r2][c2] === 1) {
+        allZero = false;
+        break;
+      }
+    }
+    if (allZero && b[r2] === 1) return null;
   }
-}
-undoBtn.addEventListener("click", undo);
-
-function redo() {
-  if (movePtr < moveStack.length - 1) {
-    toggle(moveStack[movePtr]);
-    movePtr += 1;
-    moves += 1;
-    render();
+  // back substitution (free vars assumed 0)
+  const x = new Uint8Array(n);
+  for (let r2 = row - 1; r2 >= 0; r2--) {
+    const col = pivotCol[r2];
+    if (col < 0) continue;
+    let sum = 0;
+    for (let c2 = col + 1; c2 < n; c2++) sum ^= M[r2][c2] & x[c2];
+    x[col] = b[r2] ^ sum;
   }
-}
-redoBtn.addEventListener("click", redo);
-
-function trimHistory() {
-  let n = moveStack.length - movePtr;
-  while (n > 1) {
-    moveStack.pop();
-    n -= 1;
-  }
+  return x;
 }
 
 // Events
 boardEl.addEventListener("click", (e) => {
-  unhighlightAll();
   const btn = e.target.closest(".tile");
   if (!btn) return;
+  unhighlightAll();
+
   const i = Number(btn.dataset.index);
   applyMove(i);
-  trimHistory();
-  moveStack.push(i);
-  movePtr += 1;
+  pushMove(i);
   moves += 1;
   render();
+
   if (isWin()) {
     statusEl.textContent = "You solved it! 🎉";
-    disableBoard();
-    disableHUR();
-    bestMoves = Math.min(bestMoves, moves);
-    localStorage.setItem("bestMoves", bestMoves);
+    disableControls();
+    if (bestMoves == null || moves < bestMoves) {
+      saveBestMoves(moves);
+      render();
+    }
   } else {
     statusEl.textContent = "";
   }
@@ -207,9 +269,9 @@ boardEl.addEventListener("click", (e) => {
 
 // Keyboard: Space/Enter toggles, arrow keys move focus
 boardEl.addEventListener("keydown", (e) => {
-  unhighlightAll();
   const btn = e.target.closest(".tile");
   if (!btn) return;
+  unhighlightAll();
 
   const i = Number(btn.dataset.index);
   const r = Math.floor(i / size),
@@ -217,11 +279,7 @@ boardEl.addEventListener("keydown", (e) => {
 
   if (e.key === " " || e.key === "Enter") {
     e.preventDefault();
-    btn.click();
-    trimHistory();
-    moveStack.push(i);
-    movePtr += 1;
-    boardEl.querySelector(`.tile[data-index="${idx(r, c)}"]`)?.focus();
+    btn.click(); // delegates to click handler (updates history/moves/render)
     return;
   }
 
@@ -238,19 +296,62 @@ boardEl.addEventListener("keydown", (e) => {
   }
 });
 
-newBtn.addEventListener("click", shuffle);
-
-sizeSelect.addEventListener("change", () => {
-  size = Number(sizeSelect.value);
+newBtn.addEventListener("click", () => {
+  loadBestMoves();
   shuffle();
 });
 
-function init() {
-  // Remember page theme
-  if (localStorage.getItem("isDarkTheme") != null) {
-    if (localStorage.getItem("isDarkTheme") == "true")
-      document.body.classList.add("dark");
+sizeSelect.addEventListener("change", () => {
+  size = Number(sizeSelect.value);
+  buildMatrix();
+  loadBestMoves();
+  shuffle();
+});
+
+hintBtn.addEventListener("click", () => {
+  unhighlightAll();
+  if (isWin()) return;
+  const x = solvePresses();
+  if (!x) return; // should not happen for our generated boards
+  const n = size * size;
+  // pick the first suggested press from the solution
+  let pick = -1;
+  for (let i = 0; i < n; i++) {
+    if (x[i] === 1) {
+      pick = i;
+      break;
+    }
   }
+  if (pick === -1) return;
+  const target = boardEl.querySelector(`.tile[data-index="${pick}"]`);
+  target?.classList.add("highlight");
+  target?.focus();
+});
+
+undoBtn.addEventListener("click", () => {
+  if (ptr < 0) return;
+  const i = history[ptr];
+  applyMove(i); // same move undoes it (self-inverse)
+  ptr -= 1;
+  moves = Math.max(0, moves - 1);
+  statusEl.textContent = "";
+  render();
+});
+
+redoBtn.addEventListener("click", () => {
+  if (ptr >= history.length - 1) return;
+  const i = history[ptr + 1];
+  applyMove(i);
+  ptr += 1;
+  moves += 1;
+  statusEl.textContent = "";
+  render();
+});
+
+function init() {
+  // Theme
+  const storedTheme = localStorage.getItem("isDarkTheme");
+  if (storedTheme === "true") document.body.classList.add("dark");
 
   // Populate size options 3–7
   const sizes = [3, 4, 5, 6, 7];
@@ -263,7 +364,9 @@ function init() {
     )
     .join("");
 
-  shuffle(); // sets state and renders
+  buildMatrix();
+  loadBestMoves();
+  shuffle();
 }
 
 init();

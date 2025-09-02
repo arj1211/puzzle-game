@@ -1,0 +1,137 @@
+/* Basic reset and sensible defaults */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+
+:root {
+  --bg: hsl(0 0% 98%);
+  --text: hsl(222 47% 11%);
+  --muted: hsl(220 14% 96%);
+  --btn-bg: hsl(222 100% 61%);
+  --btn-text: white;
+  --radius: 12px;
+  --space: 16px;
+  --shadow: 0 10px 20px hsl(220 40% 2% / 0.08), 0 2px 6px hsl(220 40% 2% / 0.08);
+  --surface: white;
+  --border: hsl(220 14% 85%);
+  --accent: hsl(270 90% 60%); /* ON state */
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+body.dark {
+  --bg: hsl(222 14% 10%);
+  --text: hsl(210 40% 98%);
+  --muted: hsl(222 14% 18%);
+  --btn-bg: hsl(210 100% 65%);
+  --btn-text: black;
+  --surface: hsl(222 14% 14%);
+  --border: hsl(220 10% 35%);
+  --accent: hsl(270 80% 70%);
+}
+
+/* Layout and components */
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: calc(var(--space) * 2);
+}
+.stack > * + * {
+  margin-top: 16px;
+}
+.card {
+  background: var(--surface);
+  padding: calc(var(--space) * 1.25);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.status {
+  margin: 0;
+}
+
+button {
+  appearance: none;
+  border: none;
+  border-radius: calc(var(--radius) - 4px);
+  padding: 10px 16px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+button:hover {
+  transform: translateY(-1px);
+}
+button:active {
+  transform: translateY(0);
+  opacity: 0.9;
+}
+button:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--btn-bg), white 20%);
+  outline-offset: 2px;
+}
+
+h1 {
+  margin: 0 0 var(--space) 0;
+  font-size: clamp(24px, 3vw, 36px);
+}
+
+/* Board and tiles */
+.board {
+  display: grid;
+  gap: 8px;
+}
+.tile {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--muted);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease, background 120ms ease;
+}
+.tile:hover {
+  transform: translateY(-1px);
+}
+.tile:active {
+  transform: translateY(0);
+  opacity: 0.9;
+}
+.tile:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--btn-bg), white 25%);
+  outline-offset: 2px;
+}
+
+/* Lights Out states: off = default, on = accent */
+.tile.on {
+  background: var(--accent);
+  color: white;
+}
+
+/* Accessibility: reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .tile {
+    transition: none;
+  }
+}

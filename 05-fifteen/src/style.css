@@ -50,6 +50,7 @@ body.dark {
 .stack > * + * {
   margin-top: 16px;
 }
+
 .toolbar {
   display: flex;
   gap: 12px;
@@ -62,6 +63,7 @@ body.dark {
 .status {
   margin: 0;
 }
+
 button {
   appearance: none;
   border: none;
@@ -88,6 +90,7 @@ button:focus-visible {
   outline: 2px solid color-mix(in oklch, var(--btn-bg), white 20%);
   outline-offset: 2px;
 }
+
 h1 {
   margin: 0 0 var(--space) 0;
   font-size: clamp(24px, 3vw, 36px);
@@ -98,7 +101,18 @@ h1 {
   display: grid;
   gap: 8px;
   margin: 0 auto;
+  /*Stable square sizing: width based on viewport, height via aspect-ratio */
+  /* width: min(90vmin, 680px);
+  aspect-ratio: 1; */
 }
+/* Do not show any outline for the board itself
+.board {
+  outline: none;
+}
+.board {
+  outline: none;
+} */
+
 .tile {
   aspect-ratio: 1;
   border: none;
@@ -128,13 +142,18 @@ h1 {
   outline-offset: 2px;
 }
 
+.tile.highlight {
+  outline: 2px solid color-mix(in oklch, var(--btn-bg), yellow 30%);
+  outline-offset: 2px;
+}
+
 .tile.is-empty {
   background: transparent;
   box-shadow: inset 0 0 0 2px var(--border);
   color: transparent;
 }
 
-/* Animations (we’ll use these later) */
+/* Optional animation helper */
 .tile.slide {
   transition: transform 180ms ease;
   will-change: transform;
@@ -143,5 +162,6 @@ h1 {
 @media (prefers-reduced-motion: reduce) {
   .tile {
     transition: none;
+    will-change: auto;
   }
 }

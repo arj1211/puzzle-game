@@ -101,17 +101,7 @@ h1 {
   display: grid;
   gap: 8px;
   margin: 0 auto;
-  /*Stable square sizing: width based on viewport, height via aspect-ratio */
-  /* width: min(90vmin, 680px);
-  aspect-ratio: 1; */
 }
-/* Do not show any outline for the board itself
-.board {
-  outline: none;
-}
-.board {
-  outline: none;
-} */
 
 .tile {
   aspect-ratio: 1;

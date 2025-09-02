@@ -207,9 +207,6 @@ function newGame() {
   stopTimer();
   startTimer();
   loadBests();
-  // Do not focus the board automatically; avoids scroll + default ring
-  // After first render, size it once
-  // // requestAnimationFrame(resizeBoardToViewport);
 }
 
 // Events

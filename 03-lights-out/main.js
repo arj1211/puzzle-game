@@ -5,6 +5,7 @@ const statusEl = document.getElementById("status");
 const newBtn = document.getElementById("new");
 const sizeSelect = document.getElementById("size");
 const themeBtn = document.getElementById("theme");
+const hintBtn = document.getElementById("hint");
 
 // Theme toggle
 themeBtn?.addEventListener("click", () => {
@@ -12,22 +13,30 @@ themeBtn?.addEventListener("click", () => {
 });
 
 // Game state
-let size = 5; // board size N (NxN)
+let size = 3; // board size N (NxN)
 let state = []; // flat array of booleans; true = ON, false = OFF
 let moves = 0;
 
 function idx(r, c) {
   return r * size + c;
 }
+
 function inBounds(r, c) {
   return r >= 0 && r < size && c >= 0 && c < size;
 }
-
+function get_rc(idx) {
+  const _r = Math.floor(idx / size);
+  const _c = idx % size;
+  if (inBounds(_r, _c)) return { r: _r, c: _c };
+  return { r: -1, c: -1 };
+}
 function toggle(i) {
+  unhighlightAll();
   state[i] = !state[i];
 }
 
 function applyMove(i) {
+  unhighlightAll();
   // Toggle clicked cell + orthogonal neighbors
   const r = Math.floor(i / size);
   const c = i % size;
@@ -87,13 +96,40 @@ function shuffle() {
 }
 
 function disableBoard() {
+  unhighlightAll();
   for (let index = 0; index < boardEl.children.length; index++) {
     boardEl.children[index].disabled = true;
   }
 }
 
+function unhighlightAll() {
+  for (let index = 0; index < boardEl.children.length; index++) {
+    boardEl.children[index].classList.remove("highlight");
+  }
+}
+
+function showHint() {
+  unhighlightAll();
+  if (!isWin()) {
+    for (let index = 0; index < boardEl.children.length; index++) {
+      if (boardEl.children[index].classList.contains("on")) {
+        const pos = get_rc(index);
+        const elem = boardEl.querySelector(
+          `.tile[data-index="${idx((pos.r + 1) % size, pos.c)}"]`
+        );
+        elem?.focus();
+        elem.classList.add("highlight");
+        return;
+      }
+    }
+  }
+}
+
+hintBtn.addEventListener("click", showHint);
+
 // Events
 boardEl.addEventListener("click", (e) => {
+  unhighlightAll();
   const btn = e.target.closest(".tile");
   if (!btn) return;
   const i = Number(btn.dataset.index);
@@ -110,6 +146,7 @@ boardEl.addEventListener("click", (e) => {
 
 // Keyboard: Space/Enter toggles, arrow keys move focus
 boardEl.addEventListener("keydown", (e) => {
+  unhighlightAll();
   const btn = e.target.closest(".tile");
   if (!btn) return;
 
@@ -120,6 +157,7 @@ boardEl.addEventListener("keydown", (e) => {
   if (e.key === " " || e.key === "Enter") {
     e.preventDefault();
     btn.click();
+    boardEl.querySelector(`.tile[data-index="${idx(r, c)}"]`)?.focus();
     return;
   }
 

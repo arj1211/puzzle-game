@@ -123,6 +123,11 @@ h1 {
   outline-offset: 2px;
 }
 
+.tile.highlight {
+  outline: 2px solid color-mix(in oklch, var(--btn-bg), yellow 30%);
+  outline-offset: 2px;
+}
+
 /* Lights Out states: off = default, on = accent */
 .tile.on {
   background: var(--accent);

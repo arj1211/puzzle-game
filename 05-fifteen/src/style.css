@@ -96,6 +96,27 @@ h1 {
   font-size: clamp(24px, 3vw, 36px);
 }
 
+/* Active indicator pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: hsl(220 14% 90%);
+  color: hsl(220 20% 20%);
+  font-size: 12px;
+  font-weight: 700;
+}
+body.dark .pill {
+  background: hsl(222 14% 22%);
+  color: hsl(210 40% 96%);
+}
+.pill.on {
+  background: hsl(142 70% 35%);
+  color: white;
+}
+
 /* Board + tiles */
 .board {
   display: grid;

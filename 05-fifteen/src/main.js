@@ -11,6 +11,10 @@ const newBtn = document.getElementById("new");
 const sizeSelect = document.getElementById("size");
 const themeBtn = document.getElementById("theme");
 const autoMoveEl = document.getElementById("auto-move");
+const arrowModeEl = document.getElementById("arrow-mode");
+const invertEl = document.getElementById("invert-keys");
+const activePill = document.getElementById("active-indicator");
+const toolbarEl = document.getElementById("toolbar");
 
 // Theme persistence
 const storedTheme = localStorage.getItem("isDarkTheme");
@@ -27,6 +31,16 @@ let moves = 0;
 
 // Activation state for keyboard handling
 let boardActive = false;
+function setActive(on) {
+  boardActive = !!on;
+  if (boardActive) {
+    activePill.textContent = "Active";
+    activePill.classList.add("on");
+  } else {
+    activePill.textContent = "Inactive";
+    activePill.classList.remove("on");
+  }
+}
 
 // Timer
 let startTime = 0;
@@ -154,6 +168,37 @@ function slide(tileIndex) {
   [tiles[tileIndex], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[tileIndex]];
   return true;
 }
+function inBounds(r, c) {
+  return r >= 0 && r < size && c >= 0 && c < size;
+}
+
+// Guard against typing in inputs/selects/etc.
+function isTypingTarget(t) {
+  const tag = t?.tagName?.toLowerCase();
+  return tag === "input" || tag === "textarea" || tag === "select" || t?.isContentEditable;
+}
+
+function dirFromKey(key, inverted) {
+  let dx = 0,
+    dy = 0;
+  if (key === "ArrowUp" || key === "w" || key === "W") dy = -1;
+  else if (key === "ArrowDown" || key === "s" || key === "S") dy = 1;
+  else if (key === "ArrowLeft" || key === "a" || key === "A") dx = -1;
+  else if (key === "ArrowRight" || key === "d" || key === "D") dx = 1;
+  if (inverted) {
+    dx = -dx;
+    dy = -dy;
+  }
+  return { dx, dy };
+}
+
+function neighborIndex(baseIndex, dx, dy) {
+  const { r, c } = indexToRC(baseIndex);
+  const rr = r + dy,
+    cc = c + dx;
+  if (!inBounds(rr, cc)) return null;
+  return rcToIndex(rr, cc);
+}
 
 // Render
 function render() {
@@ -198,27 +243,36 @@ function newGame() {
   tiles = shuffledSolvableTiles();
   moves = 0;
   statusEl.textContent = "";
-  boardActive = false;
+  setActive(false); // start inactive
   render();
   stopTimer();
   startTimer();
   loadBests();
 }
 
-// Activation/deactivation by clicks
-document.addEventListener("click", (e) => {
-  const insideBoard = e.target.closest && e.target.closest("#board");
-  boardActive = Boolean(insideBoard);
-});
+// // Activation/deactivation by clicks
+// document.addEventListener("click", (e) => {
+//   const insideBoard = e.target.closest && e.target.closest("#board");
+//   boardActive = Boolean(insideBoard);
+// });
 boardEl.addEventListener("click", () => {
   // Clicking any tile should activate the board (so arrows/WASD can be used)
   boardActive = true;
+});
+
+// Activate on clicks inside board; deactivate on clicks outside (except toolbar)
+document.addEventListener("pointerdown", (e) => {
+  const insideBoard = e.target.closest && e.target.closest("#board");
+  const insideToolbar = e.target.closest && e.target.closest("#toolbar");
+  if (insideBoard) setActive(true);
+  else if (!insideToolbar) setActive(false);
 });
 
 // Click to move
 boardEl.addEventListener("click", (e) => {
   const btn = e.target.closest(".tile");
   if (!btn) return;
+  setActive(true);
   const i = Number(btn.dataset.index);
   if (slide(i)) {
     moves += 1;
@@ -238,56 +292,51 @@ boardEl.addEventListener("click", (e) => {
   }
 });
 
-// Guard against typing in inputs/selects/etc.
-function isTypingTarget(t) {
-  const tag = t?.tagName?.toLowerCase();
-  return tag === "input" || tag === "textarea" || tag === "select" || t?.isContentEditable;
-}
-
 // Keyboard handling on window with boardActive gating
 window.addEventListener("keydown", (e) => {
-  const key = e.key;
   if (isTypingTarget(e.target)) return;
 
-  // First Enter/Space activates the board (no click)
-  if ((key === " " || key === "Enter") && !boardActive) {
+  // First Enter/Space activates the board
+  if ((e.key === " " || e.key === "Enter") && !boardActive) {
     e.preventDefault();
-    boardActive = true;
+    setActive(true);
     return;
   }
 
-  // If not active yet, ignore other keys
   if (!boardActive) return;
 
-  // Map keys to directions
-  const isUp = key === "ArrowUp" || key === "w" || key === "W";
-  const isDown = key === "ArrowDown" || key === "s" || key === "S";
-  const isLeft = key === "ArrowLeft" || key === "a" || key === "A";
-  const isRight = key === "ArrowRight" || key === "d" || key === "D";
-
-  // Space/Enter when active should click the focused tile (native behavior)
-  if (key === " " || key === "Enter") {
+  // Pressing Enter/Space when active: click the focused tile if any
+  if (e.key === " " || e.key === "Enter") {
     const focusedTile = document.activeElement?.closest?.(".tile");
     if (focusedTile) {
       e.preventDefault();
-      focusedTile.click();
+      focusedTile.click(); // keeps board active
     }
     return;
   }
 
-  if (!(isUp || isDown || isLeft || isRight)) return;
+  // WASD/Arrow directions
+  const { dx, dy } = dirFromKey(e.key, invertEl?.checked);
+  if (dx === 0 && dy === 0) return;
 
-  const empty = findEmpty();
-  const { r, c } = indexToRC(empty);
+  // Determine base index based on mode (empty vs focused tile)
+  const mode = arrowModeEl?.value || "empty";
+  let baseIndex;
+  if (mode === "focus") {
+    const focusedTile = document.activeElement?.closest?.(".tile");
+    baseIndex = focusedTile ? Number(focusedTile.dataset.index) : null;
+    if (baseIndex == null) baseIndex = findEmpty(); // fallback
+  } else {
+    baseIndex = findEmpty();
+  }
+
+  const target = neighborIndex(baseIndex, dx, dy);
+  if (target == null) return;
 
   if (autoMoveEl?.checked) {
-    // Auto-moving mode: arrows/WASD perform the slide
-    let target = null;
-    if (isUp && r > 0) target = rcToIndex(r - 1, c);
-    else if (isDown && r < size - 1) target = rcToIndex(r + 1, c);
-    else if (isLeft && c > 0) target = rcToIndex(r, c - 1);
-    else if (isRight && c < size - 1) target = rcToIndex(r, c + 1);
-    if (target != null) {
+    // Auto-move: try the slide if legal; otherwise just move focus
+    const empty = findEmpty();
+    if (canSlide(target, empty)) {
       e.preventDefault();
       if (slide(target)) {
         moves += 1;
@@ -303,22 +352,17 @@ window.addEventListener("keydown", (e) => {
           statusEl.textContent = "";
         }
       }
+    } else {
+      const btn = boardEl.querySelector(`.tile[data-index="${target}"]`);
+      btn?.focus();
     }
   } else {
-    // Focus-only mode: arrows/WASD move focus near the empty
-    let target = null;
-    if (isUp && r > 0) target = rcToIndex(r - 1, c);
-    else if (isDown && r < size - 1) target = rcToIndex(r + 1, c);
-    else if (isLeft && c > 0) target = rcToIndex(r, c - 1);
-    else if (isRight && c < size - 1) target = rcToIndex(r, c + 1);
-    if (target != null) {
-      e.preventDefault();
-      const nextBtn = boardEl.querySelector(`.tile[data-index="${target}"]`);
-      nextBtn?.focus();
-    }
+    // Focus-only mode
+    e.preventDefault();
+    const btn = boardEl.querySelector(`.tile[data-index="${target}"]`);
+    btn?.focus();
   }
 });
-
 // Other events
 newBtn.addEventListener("click", newGame);
 sizeSelect.addEventListener("change", () => {

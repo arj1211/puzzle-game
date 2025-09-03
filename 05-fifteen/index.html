@@ -8,8 +8,9 @@
   </head>
   <body>
     <main class="container stack">
-      <header class="toolbar">
-        <button id="new">New game</button><label for="size">Size</label>
+      <header class="toolbar" id="toolbar">
+        <button id="new">New game</button>
+        <label for="size">Size</label>
         <select id="size" aria-label="Board size">
           <option value="3">3×3</option>
           <option value="4" selected>4×4</option>
@@ -25,15 +26,30 @@
           Keyboard auto-move
         </label>
 
+        <label style="display: inline-flex; align-items: center; gap: 6px">
+          Mode
+          <select id="arrow-mode" aria-label="Arrow key mode">
+            <option value="empty">Relative to empty</option>
+            <option value="focus">Relative to focused tile</option>
+          </select>
+        </label>
+
+        <label style="display: inline-flex; align-items: center; gap: 6px">
+          <input type="checkbox" id="invert-keys" />
+          Invert arrows/WASD
+        </label>
+
+        <span id="active-indicator" class="pill">Inactive</span>
+      </header>
+
+      <section class="stack">
+        <h1>15 Puzzle</h1>
         <p class="status">
           Moves: <strong id="moves">0</strong> • Best: <strong id="best-moves">–</strong> • Time:
           <strong id="time">00:00.0</strong> • Best time: <strong id="best-time">–</strong>
           <span id="status" aria-live="polite" style="margin-left: 8px"></span>
         </p>
-      </header>
 
-      <section class="stack">
-        <h1>15 Puzzle</h1>
         <div id="board" class="board" aria-label="15 Puzzle board"></div>
       </section>
     </main>
